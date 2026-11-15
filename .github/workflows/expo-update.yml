@@ -1,0 +1,47 @@
+# Publie l'app sur EAS Update à chaque push : elle s'ouvre ensuite dans Expo Go
+# (onglet Projets, connecté au même compte Expo). Nécessite le secret EXPO_TOKEN.
+name: Publier pour Expo Go
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  workflow_dispatch:
+
+concurrency:
+  group: expo-update-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Vérifie le secret EXPO_TOKEN
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Secret EXPO_TOKEN manquant (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Vérifie le catalogue et les boîtes
+        run: npm run verify
+      - name: Relie le projet au compte Expo
+        run: npx --yes eas-cli@latest init --force --non-interactive
+      - name: Configure EAS Update
+        run: npx --yes eas-cli@latest update:configure --non-interactive
+      - name: Publie la mise à jour
+        env:
+          BRANCH: ${{ github.ref_name }}
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          npx --yes eas-cli@latest update --branch "$BRANCH" \
+            --message "$(printf '%s' "${MESSAGE:-Publication manuelle}" | head -n 1)" \
+            --non-interactive
