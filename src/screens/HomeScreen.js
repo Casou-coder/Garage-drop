@@ -30,7 +30,7 @@ export function HomeScreen({ s, value, disc, onTap, onDaily, onOpenDetail }) {
 
   return (
     <ScrollView contentContainerStyle={{ alignItems: 'center', paddingVertical: 20 }}>
-      <Pressable onPress={press}>
+      <Pressable onPress={press} accessibilityRole="button" accessibilityLabel="Plateau : tape pour gagner de l'argent">
         <Animated.View style={[st.turntable, { transform: [{ scale }] }]}>
           <View style={st.turntableInner}>
             {bestCar ? <CarArt car={bestCar} width={210} /> : <CarArt car={CARS[0]} width={210} ghost />}
@@ -65,7 +65,7 @@ export function HomeScreen({ s, value, disc, onTap, onDaily, onOpenDetail }) {
         </View>
       )}
 
-      <Pressable onPress={onDaily} style={[st.cta, !dailyReady && st.ctaOff]}>
+      <Pressable onPress={onDaily} style={[st.cta, !dailyReady && st.ctaOff]} accessibilityRole="button">
         <Text style={[st.ctaText, !dailyReady && { color: C.muted }]}>
           {dailyReady ? 'Récupérer la récompense du jour' : `Série de ${s.streak} jour${s.streak > 1 ? 's' : ''}, reviens demain`}
         </Text>
@@ -76,8 +76,8 @@ export function HomeScreen({ s, value, disc, onTap, onDaily, onOpenDetail }) {
 
 function Stat({ label, value }) {
   return (
-    <View style={{ flex: 1, alignItems: 'center' }}>
-      <Text style={st.statValue}>{value}</Text>
+    <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 4 }}>
+      <Text style={st.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{value}</Text>
       <Text style={st.statLabel}>{label}</Text>
     </View>
   );

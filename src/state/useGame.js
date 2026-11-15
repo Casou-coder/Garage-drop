@@ -1,14 +1,15 @@
 // État du jeu : argent, garage, carnet, améliorations, et toutes les actions du joueur.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, AppState } from 'react-native';
 import { RAR, VARIANTS, CAR_MAP, boxAvailable, boxPrice, rollRarity, pickCar } from '../data';
 import {
   DAY, dayIndex, quote, tapValue, tapCost, idleCost, garageValue, completedBrands, passiveRate,
   nextStreak, dailyGift, offlineEarnings,
 } from '../economy';
 import { fmt, uid } from '../utils/format';
-import { hap } from '../utils/haptics';
+import { hap, sfx, setFeedbackPrefs } from '../utils/feedback';
 import { INITIAL, loadGame, saveGame } from './save';
+import { encodeSave, decodeSave } from './transfer';
 
 const rollSerial = (car) => {
   const V = VARIANTS[car.variant];
@@ -20,6 +21,9 @@ export function useGame() {
   const [loaded, setLoaded] = useState(false);
   const [reveal, setReveal] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [account, setAccount] = useState(false);
+  const sRef = useRef(s);
+  sRef.current = s;
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
 
@@ -48,9 +52,14 @@ export function useGame() {
             saved.coins += earned;
             setTimeout(() => showToast(`Pendant ton absence : +${fmt(earned)}`), 700);
           }
+          if (!saved.createdAt) saved.createdAt = Date.now();
           setS(saved);
+        } else {
+          setS((p) => ({ ...p, createdAt: Date.now() }));
         }
-      } catch (e) {}
+      } catch (e) {
+        setS((p) => ({ ...p, createdAt: p.createdAt || Date.now() }));
+      }
       setLoaded(true);
     })();
   }, []);
@@ -62,17 +71,42 @@ export function useGame() {
     return () => clearTimeout(t);
   }, [s, loaded]);
 
-  // Revenus passifs, une fois par seconde
+  // Revenus passifs, une fois par seconde, seulement quand l'app est au premier plan
   useEffect(() => {
     const id = setInterval(() => {
       const r = perSecRef.current;
-      if (r > 0) setS((p) => ({ ...p, coins: p.coins + r }));
+      if (r > 0 && AppState.currentState === 'active') setS((p) => ({ ...p, coins: p.coins + r }));
     }, 1000);
     return () => clearInterval(id);
   }, []);
 
+  // Mise en arrière-plan : sauvegarde immédiate. Retour : gains hors-ligne (même règle qu'au lancement).
+  useEffect(() => {
+    if (!loaded) return;
+    let leftAt = null;
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') {
+        if (leftAt) {
+          const earned = offlineEarnings(perSecRef.current, Date.now() - leftAt);
+          leftAt = null;
+          if (earned > 0) {
+            setS((p) => ({ ...p, coins: p.coins + earned }));
+            showToast(`Pendant ton absence : +${fmt(earned)}`);
+          }
+        }
+      } else if (!leftAt) {
+        leftAt = Date.now();
+        saveGame(sRef.current);
+      }
+    });
+    return () => sub.remove();
+  }, [loaded]);
+
+  // Réglages de son et de vibrations
+  useEffect(() => { setFeedbackPrefs({ sound: s.sound, haptics: s.haptics }); }, [s.sound, s.haptics]);
+
   /* Actions */
-  const tap = () => { hap('tap'); setS((p) => ({ ...p, coins: p.coins + tapValue(p.tapLevel) })); };
+  const tap = () => { hap('tap'); sfx('tap'); setS((p) => ({ ...p, coins: p.coins + tapValue(p.tapLevel), taps: p.taps + 1 })); };
 
   const openBox = (box, theme, n) => {
     if (!boxAvailable(box, theme)) return;
@@ -85,7 +119,7 @@ export function useGame() {
       seen.add(car.id);
       return { key: uid(), carId: car.id, serial: rollSerial(car), isNew, keep: isNew || car.rarity >= 2 };
     });
-    hap('open');
+    hap('open'); sfx('open');
     setS((p) => ({ ...p, coins: p.coins - price, opened: p.opened + n }));
     setReveal({ id: uid(), items, color: box.color });
   };
@@ -104,7 +138,7 @@ export function useGame() {
       items.forEach((it) => ds.add(it.carId));
       return { ...p, coins: p.coins + gain, garage: [...p.garage, ...add], discovered: [...ds] };
     });
-    if (gain > 0) showToast(`Vendu : +${fmt(gain)}`);
+    if (gain > 0) { sfx('coin'); showToast(`Vendu : +${fmt(gain)}`); }
     setReveal(null);
   };
 
@@ -116,7 +150,7 @@ export function useGame() {
     const used = new Set(mine.slice(0, 5).map((x) => x.uid));
     const car = pickCar(r + 1, null);
     setS((p) => ({ ...p, garage: p.garage.filter((x) => !used.has(x.uid)) }));
-    hap('open');
+    hap('open'); sfx('open');
     setReveal({ id: uid(), color: RAR[r + 1].color, items: [{ key: uid(), carId: car.id, serial: rollSerial(car), isNew: !disc.has(car.id), keep: true }] });
   };
 
@@ -125,6 +159,7 @@ export function useGame() {
     if (!item) return;
     const q = quote(CAR_MAP[item.carId]);
     setS((p) => ({ ...p, garage: p.garage.filter((x) => x.uid !== u), coins: p.coins + q }));
+    sfx('coin');
     showToast(`Vendue : +${fmt(q)}`);
     setDetail(null);
   };
@@ -141,6 +176,7 @@ export function useGame() {
     });
     if (gain === 0) return showToast('Aucun doublon à vendre');
     setS((p) => ({ ...p, garage: keep, coins: p.coins + gain }));
+    sfx('coin');
     showToast(`Doublons vendus : +${fmt(gain)}`);
   };
 
@@ -152,7 +188,7 @@ export function useGame() {
     }
     const streak = nextStreak(since, s.streak);
     const gift = dailyGift(s.tapLevel, streak);
-    hap('big');
+    hap('big'); sfx('coin');
     setS((p) => ({ ...p, coins: p.coins + gift, lastDaily: Date.now(), streak }));
     showToast(`Jour ${streak} : +${fmt(gift)}`);
   };
@@ -160,21 +196,39 @@ export function useGame() {
   const upgrade = (kind) => {
     const cost = kind === 'tap' ? tapCost(s.tapLevel) : idleCost(s.idleLevel);
     if (s.coins < cost) return showToast(`Il te manque ${fmt(cost - s.coins)}`);
-    hap('open');
+    hap('open'); sfx('upgrade');
     setS((p) => (kind === 'tap'
       ? { ...p, coins: p.coins - cost, tapLevel: p.tapLevel + 1 }
       : { ...p, coins: p.coins - cost, idleLevel: p.idleLevel + 1 }));
   };
 
-  const setFast = (v) => setS((p) => ({ ...p, fast: v }));
+  /* Compte et réglages */
+  const setSetting = (key, v) => setS((p) => ({ ...p, [key]: v }));
+  const setName = (name) => setS((p) => ({ ...p, name: name.slice(0, 16) }));
+  const finishTutorial = (name) => setS((p) => ({ ...p, tutorialDone: true, name: name ? name.trim().slice(0, 16) : p.name }));
+  const replayTutorial = () => { setAccount(false); setS((p) => ({ ...p, tutorialDone: false })); };
 
-  const reset = () => Alert.alert('Recommencer à zéro ?', 'Ton garage, ton carnet et ton argent seront effacés.', [
+  const exportCode = () => encodeSave(s);
+  // Remplace la partie en cours par celle du code. Renvoie un message d'erreur, ou null si tout va bien.
+  const importCode = (code) => {
+    try {
+      const restored = decodeSave(code);
+      setS({ ...restored, lastSeen: Date.now(), createdAt: restored.createdAt || Date.now() });
+      showToast('Partie restaurée');
+      return null;
+    } catch (e) {
+      return e.message || 'Code invalide.';
+    }
+  };
+
+  const reset = () => Alert.alert('Recommencer à zéro ?', 'Ton garage, ton carnet et ton argent seront effacés. Tes réglages et ton pseudo sont conservés.', [
     { text: 'Annuler', style: 'cancel' },
-    { text: 'Effacer', style: 'destructive', onPress: () => setS({ ...INITIAL, lastSeen: Date.now() }) },
+    { text: 'Effacer', style: 'destructive', onPress: () => setS((p) => ({ ...INITIAL, lastSeen: Date.now(), createdAt: Date.now(), name: p.name, sound: p.sound, haptics: p.haptics, fast: p.fast, tutorialDone: true })) },
   ]);
 
   return {
-    s, disc, done, value, perSec, toast, reveal, detail, setDetail,
-    tap, openBox, finishReveal, tradeUp, sellUid, sellDuplicates, claimDaily, upgrade, setFast, reset,
+    s, loaded, disc, done, value, perSec, toast, reveal, detail, setDetail, account, setAccount,
+    tap, openBox, finishReveal, tradeUp, sellUid, sellDuplicates, claimDaily, upgrade, reset,
+    setSetting, setName, finishTutorial, replayTutorial, exportCode, importCode,
   };
 }

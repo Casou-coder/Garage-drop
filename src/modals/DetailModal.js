@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Pressable, Modal } from 'react-native';
+import { View, Text, Pressable, Modal, Alert, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COUNTRIES, EPOCHS, SEGMENTS, VARIANTS, BRAND_MAP, CAR_MAP } from '../data';
 import { quote } from '../economy';
 import { accel, vmax } from '../utils/performance';
@@ -12,6 +13,7 @@ import { fmt, flagOf } from '../utils/format';
 
 /* ---------- Fiche voiture ---------- */
 export function DetailModal({ detail, s, onClose, onSell }) {
+  const insets = useSafeAreaInsets();
   if (!detail) return null;
   const item = detail.uid ? s.garage.find((x) => x.uid === detail.uid) : null;
   const car = CAR_MAP[item ? item.carId : detail.carId];
@@ -27,13 +29,21 @@ export function DetailModal({ detail, s, onClose, onSell }) {
     ['0 à 100 km/h', ghost ? '?' : `${accel(car.hp).toFixed(1).replace('.', ',')} s`],
     ['Vitesse max', ghost ? '?' : `${vmax(car.hp)} km/h`],
   ];
+  // Confirmation avant de vendre une pièce rare (Légendaire ou mieux) ou numérotée
+  const sell = () => {
+    if (Platform.OS === 'web' || (car.rarity < 3 && !item.serial)) return onSell(item.uid);
+    Alert.alert('Vendre cette voiture ?', `${BRAND_MAP[car.brand].name} ${car.name} pour ${fmt(q)}. Cette vente est définitive.`, [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Vendre', style: 'destructive', onPress: () => onSell(item.uid) },
+    ]);
+  };
   const diff = item && item.paid ? ((q - item.paid) / item.paid) * 100 : null;
 
   return (
     <Modal transparent animationType="slide" visible onRequestClose={onClose}>
       <View style={st.sheetWrap}>
         <Pressable style={{ flex: 1 }} onPress={onClose} />
-        <View style={st.sheet}>
+        <View style={[st.sheet, { paddingBottom: 20 + insets.bottom }]}>
           <View style={{ alignItems: 'center' }}>
             {!ghost && <RarityTag r={car.rarity} />}
             <Text style={st.revealBrand}>{BRAND_MAP[car.brand].name}</Text>
@@ -64,7 +74,7 @@ export function DetailModal({ detail, s, onClose, onSell }) {
           )}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
             {item && (
-              <Pressable onPress={() => onSell(item.uid)} style={[st.choice, { borderColor: C.red }]}>
+              <Pressable onPress={sell} style={[st.choice, { borderColor: C.red }]} accessibilityRole="button">
                 <Text style={[st.choiceText, { color: C.red }]}>Vendre {fmt(q)}</Text>
               </Pressable>
             )}

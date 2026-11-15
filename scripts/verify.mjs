@@ -1,6 +1,8 @@
 // Vérifie les invariants du catalogue et de l'économie. Lancer avec : npm run verify
 // Sort en erreur (code 1) si une valeur attendue ne correspond plus.
 import { createHash } from 'node:crypto';
+import { INITIAL } from '../src/state/initial.js';
+import { sanitizeSave, encodeSave, decodeSave } from '../src/state/transfer.js';
 import { RAR, BRANDS, MODELS, CARS, BY_RARITY, THEMES, BOXES, boxAvailable, boxPrice } from '../src/data/index.js';
 
 const EXPECTED = {
@@ -55,6 +57,25 @@ const off = [];
 THEMES.forEach((t) => BOXES.forEach((b) => { if (!boxAvailable(b, t)) off.push(`${b.name} ${t.label}`); }));
 console.log(`  ${THEMES.length} thèmes, ${off.length} combinaisons désactivées${off.length ? ' : ' + off.join(', ') : ''}`);
 check('Box Garage thématique', boxPrice(BOXES[0], THEMES[1]), 4000);
+
+console.log('\n— Sauvegarde —');
+{
+  const state = { ...INITIAL, coins: 123456.7, name: 'Pilote é🚗', tapLevel: 4, opened: 3, discovered: [CARS[0].id, CARS[7].id],
+    garage: [{ uid: 'a1', carId: CARS[7].id, serial: 12, paid: 900, at: 5 }] };
+  const code = encodeSave(state);
+  const back = decodeSave(code);
+  check('Code de sauvegarde : aller-retour', ['coins', 'name', 'tapLevel', 'opened'].every((k) => back[k] === state[k])
+    && JSON.stringify(back.garage) === JSON.stringify(state.garage) && back.discovered.length === 2 ? 'ok' : 'différent', 'ok');
+  let rejected = false;
+  try { decodeSave(code.slice(0, -8) + 'AAAAAAAA'); } catch (e) { rejected = true; }
+  try { decodeSave(code.replace('.', '.x')); rejected = false; } catch (e) { /* attendu */ }
+  check('Code modifié ou tronqué refusé', rejected ? 'ok' : 'accepté', 'ok');
+  // Sauvegarde du prototype (sans les nouveaux champs) et données abîmées
+  const old = sanitizeSave({ coins: 10, tapLevel: 2, idleLevel: 1, garage: [{ uid: 'x', carId: 'vel-0-Y-s' }, { uid: 'y', carId: 'inconnue' }], discovered: ['vel-0-Y-s', 'nope'], opened: 1 });
+  check('Ancienne sauvegarde reprise', old.garage.length === 1 && old.discovered.length === 1 && old.sound === true && old.tutorialDone === true ? 'ok' : 'cassée', 'ok');
+  const junk = sanitizeSave({ coins: 'abc', tapLevel: -4, garage: 'x', discovered: null });
+  check('Sauvegarde abîmée tolérée', junk.coins === INITIAL.coins && junk.tapLevel === 1 && junk.garage.length === 0 ? 'ok' : 'cassée', 'ok');
+}
 
 console.log(failed ? '\n✗ Vérification ÉCHOUÉE' : '\n✓ Tout correspond');
 process.exit(failed ? 1 : 0);

@@ -16,7 +16,7 @@ const GROUPINGS = {
   epoch: { label: 'Époques', key: (m) => m.epoch, order: EPOCH_ORDER, title: (k) => `${EPOCHS[k].label} (${EPOCHS[k].from}-${EPOCHS[k].to})` },
 };
 
-export function CarnetScreen({ disc, done, onOpenDetail }) {
+export const CarnetScreen = React.memo(function CarnetScreen({ disc, done, onOpenDetail }) {
   const [mode, setMode] = useState('brand');
   const [group, setGroup] = useState(null);
   const G = GROUPINGS[mode];
@@ -97,4 +97,4 @@ export function CarnetScreen({ disc, done, onOpenDetail }) {
       </ScrollView>
     </View>
   );
-}
+});

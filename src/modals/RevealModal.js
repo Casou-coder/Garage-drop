@@ -8,7 +8,7 @@ import { RarityTag } from '../components/RarityTag';
 import { C } from '../theme';
 import { st } from '../styles';
 import { fmt, carName, flagOf } from '../utils/format';
-import { hap } from '../utils/haptics';
+import { hap, sfx } from '../utils/feedback';
 
 /* ---------- Ouverture ---------- */
 export function RevealModal({ reveal, fast, onFinish }) {
@@ -22,6 +22,7 @@ export function RevealModal({ reveal, fast, onFinish }) {
   const show = () => {
     setStage('revealed');
     if (best >= 3) hap('big');
+    sfx(best >= 3 ? 'rare' : 'reveal');
     pop.setValue(0);
     Animated.spring(pop, { toValue: 1, friction: 5, tension: 60, useNativeDriver: true }).start();
     Animated.timing(flash, { toValue: 0, duration: 450, useNativeDriver: true }).start();

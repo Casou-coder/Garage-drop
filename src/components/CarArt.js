@@ -24,7 +24,8 @@ const SHAPES = {
   prewar: { cl: 30, cw: 48, ct: 6, ch: 34, bt: 40, bh: 18, r1: 4, r2: 4, ws: 30, fenders: true },
 };
 
-export function CarArt({ car, width = 160, ghost = false }) {
+// Mémoïsé : une voiture donnée se redessine seulement si elle change
+export const CarArt = React.memo(function CarArt({ car, width = 160, ghost = false }) {
   const s = width / 160;
   const sh = SHAPES[car.epoch === 'P' ? 'prewar' : car.seg] || SHAPES.berline;
   const v = car.variant || 's';
@@ -83,4 +84,4 @@ export function CarArt({ car, width = 160, ghost = false }) {
       ))}
     </View>
   );
-}
+});
