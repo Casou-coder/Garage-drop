@@ -9,7 +9,8 @@ Le développeur travaille uniquement depuis un iPhone et teste avec Expo Go.
 - **Boîtes** : six boîtes de prix croissants, chacune avec ses probabilités par rareté (affichées au joueur). Version thématique (pays, région, époque, catégorie) facturée 25 % de plus.
 - **Garage** : chaque voiture obtenue est gardée ou revendue à la cote du jour. Échange de 5 voitures d'une rareté contre 1 de la rareté au-dessus. Vente des doublons.
 - **Carnet** : collection de toutes les versions, groupées par marque, région, pays, catégorie ou époque. Une marque complète (version standard de chaque modèle) donne +5 % de revenus passifs.
-- **Atelier** : améliorations du tap et des revenus passifs, réglages, remise à zéro.
+- **Atelier** : améliorations du tap et des revenus passifs.
+- **Compte** (bouton en haut à gauche) : pseudo, rang, statistiques, réglages (sons, vibrations, ouvertures rapides), code de sauvegarde pour changer d'appareil, tutoriel, confidentialité, remise à zéro. Le compte est **local** : il n'y a pas de backend.
 
 Marques et modèles **fictifs uniquement** : ne jamais introduire de vraie marque ni de vrai nom de modèle.
 
@@ -17,7 +18,7 @@ Marques et modèles **fictifs uniquement** : ne jamais introduire de vraie marqu
 
 ```bash
 npm install            # dépendances
-npm run verify         # vérifie le catalogue et le rendement des boîtes (à lancer après tout changement de données)
+npm run verify         # vérifie le catalogue, le rendement des boîtes et la sauvegarde (à lancer après tout changement de données)
 npx expo start         # serveur de dev (Expo Go sur le même réseau)
 npx expo start --tunnel  # idem via tunnel (demande un compte Expo ; `--tunnel ngrok` sinon)
 npx expo install <paquet>  # toujours utiliser ceci pour ajouter une dépendance
@@ -25,14 +26,17 @@ npx expo install <paquet>  # toujours utiliser ceci pour ajouter une dépendance
 
 Expo SDK 58, template blank, sans expo-router. Pas de TypeScript, pas de linter configuré.
 N'ajouter que des modules inclus dans Expo Go (pas de code natif personnalisé).
+Publication : voir `docs/PUBLICATION.md` (étapes) et `docs/store/fiche-store.md` (textes et questionnaires).
 
 ## Architecture
 
 ```
-App.js                  Coquille : en-tête, onglets, toast, modales. Aucune logique de jeu.
+App.js                  Coquille : zones sûres, en-tête, onglets, toast, modales. Aucune logique de jeu.
 index.js                Point d'entrée Expo (registerRootComponent)
+app.json / eas.json     Configuration de l'app (identifiants, icônes, plugins) et des builds EAS
+assets/                 Icônes, image de lancement, sons (générés par scripts/make-icons.js et make-sounds.mjs)
 src/
-  theme.js              Couleurs (C) et polices
+  theme.js              Couleurs (C) et polices (F)
   styles.js             Feuille de styles partagée (st)
   data/                 Données pures, sans React (importables depuis node)
     random.js           hash (FNV-1a) et rng seedé (mulberry32)
@@ -42,22 +46,27 @@ src/
     catalog.js          Génération : CARS, MODELS, CAR_MAP, BY_RARITY, MODELS_BY_BRAND
     themes.js           THEMES : filtres des boîtes thématiques
     boxes.js            BOXES, boxAvailable, boxPrice, rollRarity, pickCar
+    privacy.js          Texte de la politique de confidentialité (même contenu que docs/privacy.html)
   economy/              Formules pures, sans React
     market.js           Cote du jour (marketFactor, quote)
     income.js           Tap, mécanos, showroom, bonus de marques, passiveRate
     rewards.js          Récompense quotidienne, gains hors-ligne
   state/
-    save.js             SAVE_KEY, INITIAL, loadGame, saveGame (AsyncStorage)
-    useGame.js          Hook : état du jeu et toutes les actions (ouvrir, vendre, échanger, améliorer…)
-  components/           CarArt, BoxArt, Chip/ChipRow, RarityTag, Trend
+    initial.js          SAVE_KEY et INITIAL (pur)
+    transfer.js         sanitizeSave, encodeSave, decodeSave : nettoyage et code de sauvegarde (pur)
+    save.js             loadGame, saveGame (AsyncStorage)
+    useGame.js          Hook : état du jeu et toutes les actions (ouvrir, vendre, échanger, améliorer, compte…)
+  components/           CarArt, BoxArt, Chip/ChipRow, RarityTag, Trend, ErrorBoundary
   screens/              HomeScreen (Showroom), BoxesScreen, GarageScreen, CarnetScreen, UpgradesScreen (Atelier)
-  modals/               RevealModal (ouverture de boîtes), DetailModal (fiche voiture)
-  utils/                format (fmt, uid, carName…), haptics, performance (0-100, vitesse max)
+  modals/               RevealModal (ouverture), DetailModal (fiche voiture), AccountModal (compte), TutorialModal
+  utils/                format (fmt, uid, carName…), feedback (vibrations et sons), performance, rank
 scripts/verify.mjs      Contrôle des invariants
+docs/                   Page d'assistance et confidentialité (GitHub Pages), fiche store, guide de publication
+.github/workflows/      expo-update (publication Expo Go à chaque push), store-build (EAS Build manuel)
 ```
 
 Règles de dépendance : `data` ne dépend de rien, `economy` dépend de `data`, l'interface dépend des deux.
-Dans `src/data`, `src/economy` et `src/utils/format.js`, les imports gardent l'extension `.js`
+Dans `src/data`, `src/economy`, `src/state/initial.js`, `src/state/transfer.js` et `src/utils/format.js`, les imports gardent l'extension `.js`
 pour que `scripts/verify.mjs` puisse les charger avec node. Ne pas y importer React ni react-native.
 
 Les voitures sont dessinées avec des `View` (pas d'images) : `CarArt` choisit une silhouette selon le
@@ -97,7 +106,9 @@ Raretés : 0 Commune, 1 Rare, 2 Épique, 3 Légendaire, 4 Mythique, 5 Prototype.
 - Ne pas toucher à `hash`, `rng`, ni à l'ordre des appels au générateur dans `catalog.js` :
   les valeurs de toutes les voitures changeraient.
 - Clé de sauvegarde : `garagedrop-save-v2`. Tout nouveau champ d'état doit avoir une valeur par défaut
-  dans `INITIAL` (les anciennes sauvegardes sont fusionnées dessus).
+  dans `INITIAL` **et** être repris dans `sanitizeSave` (`src/state/transfer.js`), sinon il est perdu au
+  chargement. Toute sauvegarde (stockage local ou code collé) passe par `sanitizeSave`.
+- Code de sauvegarde : `GD2.<JSON en base64url>.<hash de contrôle>`. Ne pas changer ce format sans garder la lecture de l'ancien.
 - État actuel attendu : **25 marques, 237 modèles, 1185 versions**. `npm run verify` contrôle ces
   chiffres ainsi qu'une empreinte des identifiants, raretés et valeurs.
 
@@ -113,7 +124,7 @@ Ne modifier ni les probabilités, ni les prix, ni les formules sans demande expl
 | Coût amélioration mécanos | `round(400 × 1,6^niveau)` |
 | Showroom (par seconde) | `0,00002 ×` valeur de base du garage (0,12 % par minute) |
 | Bonus de collection | `+5 %` de revenus passifs par marque complète |
-| Hors-ligne | 50 % du revenu passif, plafonné à 2 h |
+| Hors-ligne | 50 % du revenu passif, plafonné à 2 h (au lancement et au retour d'arrière-plan ; aucun revenu passif ne tourne en arrière-plan) |
 | Récompense du jour | `max(3000, 300 taps) × (1 + 0,25 × (min(série, 7) − 1))` ; série remise à 1 après 48 h |
 | Cote du jour | `valeur × (1 + 0,12·sin(0,9·j + h) + 0,05·sin(2,3·j + 0,7·h))`, `j` = numéro du jour, `h = hash(modèle) % 1000` |
 | Échange | 5 voitures d'une rareté (les moins chères) → 1 voiture au hasard de la rareté suivante |
@@ -173,3 +184,11 @@ Les sessions Claude Code dans le cloud ne peuvent pas ouvrir de tunnel Expo (ré
 `api.expo.dev` et les serveurs ngrok sont refusés). Ne pas promettre de QR code depuis le cloud.
 Vérifications possibles côté cloud : `npm run verify`, et `npx expo export --platform ios` pour
 s'assurer que le bundle se construit (ajouter `EXPO_OFFLINE=1` si l'API Expo est injoignable).
+
+## Interface : règles à respecter
+
+- Zones sûres : utiliser `useSafeAreaInsets` (react-native-safe-area-context), jamais le `SafeAreaView` de react-native (déprécié).
+- Tout retour haptique ou sonore passe par `hap()` et `sfx()` de `src/utils/feedback.js`, qui respectent les réglages du joueur.
+- `Alert.alert` ne fait rien sur le web : les confirmations y sont contournées (`Platform.OS === 'web'`), utile pour les tests navigateur.
+- Aucune permission : pas de micro (plugin expo-audio configuré sans), pas de réseau requis. Garder la fiche « aucune donnée collectée » vraie ; si un backend arrive, mettre à jour `src/data/privacy.js`, `docs/privacy.html` et `docs/store/fiche-store.md`.
+- La vente d'une voiture Légendaire ou mieux, ou numérotée, demande une confirmation.
