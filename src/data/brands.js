@@ -1,0 +1,30 @@
+// Marques fictives. Format d'une gamme : "Nom:segment:époques" (P C Y M A)
+// Pour agrandir le catalogue, il suffit d'ajouter des gammes ou des marques ici.
+export const BRANDS = [
+  { id: 'vel', name: 'Vellano', country: 'it', prestige: 2, pal: 'rosso', lines: 'Furia:super:YMA|Inferno:hyper:A|Saetta:super:MA|Tempesta:super:Y|Alba:gt:CMA|Libeccio:sport:C|Lampo:hyper:M|Vento 250:gt:C' },
+  { id: 'bra', name: 'Bravura', country: 'it', prestige: 1, pal: 'rosso', lines: 'Rally:rally:YM|Sprint:sport:CYA|Allegra:city:CYMA|Lido:roadster:CY|Montagna:suv:A|Bianca:berline:MA' },
+  { id: 'str', name: 'Strada', country: 'it', prestige: 0, pal: 'pop', lines: 'Pico:city:CYMA|Campo:suv:MA|Famiglia:wagon:YM|Viale:berline:YMA|Mare:electric:A' },
+  { id: 'kra', name: 'Kraußer', country: 'de', prestige: 1, pal: 'sober', lines: 'K4:berline:MA|Tourer:wagon:YMA|GT Turbo:sport:YMA|Nachtfalke:super:MA|Seeadler:gt:C|Bergsteiger:suv:MA|Donner:sport:C' },
+  { id: 'ost', name: 'Ostwerk', country: 'de', prestige: 0, pal: 'pop', lines: 'Biene:city:CY|Kompakt:city:YMA|Reise:wagon:YM|Strom:electric:A|Vario:berline:YMA|Gelände:offroad:YM' },
+  { id: 'hal', name: 'Halden', country: 'de', prestige: 2, pal: 'luxe', lines: 'Imperator:limo:PCM|Souverän:gt:CYMA|Silbermond:limo:A|Prinz:gt:P' },
+  { id: 'mon', name: 'Montclair', country: 'fr', prestige: 1, pal: 'luxe', lines: 'Avenue:berline:YMA|Esterel:roadster:CYM|Grand Tourer:gt:MA|Céleste:gt:C|Belvédère:suv:A' },
+  { id: 'riv', name: 'Rivière', country: 'fr', prestige: 0, pal: 'pop', lines: 'Pétale:city:YMA|Galopin:city:C|Rallye R:rally:YM|Volta:electric:A|Familiale:wagon:YM|Escapade:suv:MA|Croisière:berline:CYM' },
+  { id: 'del', name: 'Delaroque', country: 'fr', prestige: 2, pal: 'luxe', lines: 'Type D:limo:P|Atlantide:gt:P|Majestic:limo:C|Renaissance:hyper:A' },
+  { id: 'ash', name: 'Ashcombe', country: 'uk', prestige: 2, pal: 'luxe', lines: 'Windmere:limo:CMA|Regent:gt:YMA|Belgravia:gt:C|Henley:roadster:PC' },
+  { id: 'kes', name: 'Kestrel', country: 'uk', prestige: 1, pal: 'nord', lines: 'Goshawk:roadster:CY|Merlin:sport:MA|Peregrine:super:A|Hobby:sport:Y|Kite:roadster:M' },
+  { id: 'tho', name: 'Thornbury', country: 'uk', prestige: 1, pal: 'nord', lines: 'Fell:offroad:CYM|Moorland:suv:MA|Quarry:offroad:A|Ridgeback:offroad:A' },
+  { id: 'nor', name: 'Nordvik', country: 'se', prestige: 0, pal: 'nord', lines: 'Fjord:berline:YMA|Ridge:suv:MA|Kombi:wagon:CYM|Norrsken:electric:A|Granit:berline:C' },
+  { id: 'ban', name: 'Bannerman', country: 'us', prestige: 0, pal: 'us', lines: 'Homestead:pickup:CYMA|Interstate:berline:CYM|Pioneer:suv:MA|Thunderhead:muscle:CA' },
+  { id: 'rid', name: 'Ridgeway', country: 'us', prestige: 0, pal: 'us', lines: 'Prospector:pickup:YMA|Badlands:offroad:CYM|Lodge:suv:MA|Drifter:wagon:CY' },
+  { id: 'sta', name: 'Stallard', country: 'us', prestige: 1, pal: 'us', lines: 'Twister:muscle:CY|Hammerhead:muscle:A|Sidewinder:sport:YM|Thunder Road:muscle:C|Apex GT:super:A' },
+  { id: 'hlr', name: 'Halloran', country: 'us', prestige: 2, pal: 'luxe', lines: 'Presidential:limo:PCYMA|Boulevard:gt:CY|Pinnacle:berline:MA|Coastline:roadster:C' },
+  { id: 'vol', name: 'Voltaic', country: 'us', prestige: 1, pal: 'nord', lines: 'Arc:electric:A|Surge:electric:A|Ampere:hyper:A|Ohm:city:A|Coil:suv:A' },
+  { id: 'hay', name: 'Hayashi', country: 'jp', prestige: 0, pal: 'jp', lines: 'Kei:city:YMA|Drift GT:sport:YM|Raijin:super:A|Hanami:berline:CYMA|Kumo:suv:MA|Tora:rally:YM' },
+  { id: 'kaz', name: 'Kazane', country: 'jp', prestige: 1, pal: 'jp', lines: 'Shinden:sport:YMA|Tsukuyomi:gt:MA|Kamikaze R:super:MA|Hayate:sport:C|Ronin:roadster:YM' },
+  { id: 'tsu', name: 'Tsurugi', country: 'jp', prestige: 2, pal: 'jp', lines: 'Raikiri:hyper:A|Masamune:super:MA|Daimyo:gt:A' },
+  { id: 'miz', name: 'Mizuho', country: 'jp', prestige: 0, pal: 'pop', lines: 'Mame:city:CY|Hotaru:electric:A|Yama:suv:MA|Tanuki:city:MA|Kaze:wagon:YM' },
+  { id: 'han', name: 'Hanbit', country: 'kr', prestige: 0, pal: 'sober', lines: 'Haneul:city:MA|Bada:berline:MA|Sanmaru:suv:MA|Bit:electric:A|Pado:sport:A' },
+  { id: 'lon', name: 'Longhai', country: 'cn', prestige: 0, pal: 'sober', lines: 'Jade:electric:A|Longwei:suv:A|Qinghe:berline:MA|Feng:hyper:A' },
+  { id: 'kur', name: 'Kurrajong', country: 'au', prestige: 0, pal: 'us', lines: 'Drover:pickup:CYMA|Bushranger:muscle:YM|Dingo:offroad:YM' },
+];
+export const BRAND_MAP = Object.fromEntries(BRANDS.map((b) => [b.id, b]));
