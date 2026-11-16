@@ -10,6 +10,20 @@ titulaire des comptes peut faire. Tout est faisable depuis un iPhone (Safari).
 3. GitHub > Actions > « Publier pour Expo Go » > Run workflow.
 4. Ouvrir Expo Go, connecté au même compte : le projet GarageDrop apparaît.
 
+## 0 bis. Activer le compte en ligne (Supabase)
+
+1. Supabase > projet > SQL Editor : coller et exécuter le contenu de `supabase/garagedrop.sql`.
+2. Supabase > Project Settings > API : copier la clé « anon / publishable ».
+3. GitHub > dépôt > Settings > Secrets and variables > Actions : secret `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+   Pour les builds des stores, coller aussi la clé dans `src/config.js` (elle est publique par nature).
+4. Relancer « Publier pour Expo Go ». Sans clé, l'app marche mais la carte « Compte en ligne » indique qu'il n'est pas activé.
+
+Points ouverts à trancher avant la sortie :
+- Le projet Supabase est partagé avec OR Vault : un même e-mail donne un seul compte pour les deux apps, et les e-mails
+  de confirmation portent le nom du projet. Un projet Supabase dédié à GarageDrop serait plus propre.
+- Apple exige la suppression de compte depuis l'app. Aujourd'hui l'app efface les données GarageDrop en ligne, pas le
+  compte lui-même (il sert aussi à OR Vault). Avec un projet dédié, on pourra supprimer le compte entier.
+
 ## 1. Activer la page de confidentialité
 
 GitHub > dépôt > Settings > Pages > Source : « Deploy from a branch », branche `main`, dossier `/docs`.

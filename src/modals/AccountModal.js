@@ -14,6 +14,69 @@ function Row({ k, v }) {
   return <View style={st.specRow}><Text style={st.specK}>{k}</Text><Text style={st.specV}>{v}</Text></View>;
 }
 
+// Compte en ligne : connexion, création, synchronisation
+function OnlineCard({ cloud }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [note, setNote] = useState(null);
+  const act = async (fn) => { setNote(null); const r = await fn(); setNote(r); if (r.ok) setPassword(''); };
+  const valid = /\S+@\S+\.\S+/.test(email.trim());
+  const need = (fn, withPassword = true) => () => {
+    if (!valid) return setNote({ ok: false, message: 'Saisis ton adresse e-mail.' });
+    if (withPassword && password.length < 6) return setNote({ ok: false, message: 'Mot de passe : 6 caractères minimum.' });
+    act(fn);
+  };
+  const confirmDelete = () => {
+    if (Platform.OS === 'web') return act(cloud.deleteOnline);
+    Alert.alert('Effacer tes données en ligne ?', 'La partie enregistrée sur ton compte sera supprimée et tu seras déconnecté. La partie de cet appareil est conservée.', [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Effacer', style: 'destructive', onPress: () => act(cloud.deleteOnline) },
+    ]);
+  };
+
+  return (
+    <View style={st.card}>
+      <Text style={st.cardTitle}>Compte en ligne</Text>
+      {!cloud.enabled ? (
+        <Text style={[st.sectionHint, { marginBottom: 0 }]}>Le compte en ligne n'est pas activé dans cette version. Ta partie est enregistrée sur cet appareil ; utilise le code de sauvegarde pour la transférer.</Text>
+      ) : cloud.email ? (
+        <>
+          <Row k="Connecté" v={cloud.email} />
+          <Row k="Dernière synchronisation" v={cloud.lastSync ? new Date(cloud.lastSync).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'en attente'} />
+          <Text style={[st.sectionHint, { marginTop: 10 }]}>Ta partie est envoyée sur ton compte chaque minute et quand tu quittes l'app. Connecte-toi sur un autre appareil pour la retrouver.</Text>
+          <Pressable onPress={() => act(cloud.syncNow)} disabled={cloud.busy} style={[st.buy, cloud.busy && st.buyOff]} accessibilityRole="button">
+            <Text style={st.buyText}>{cloud.busy ? 'Un instant…' : 'Synchroniser maintenant'}</Text>
+          </Pressable>
+          <Pressable onPress={() => act(cloud.signOut)} disabled={cloud.busy} style={[st.outlineBtn, { marginTop: 10 }]} accessibilityRole="button">
+            <Text style={st.outlineBtnText}>Se déconnecter</Text>
+          </Pressable>
+          <Pressable onPress={confirmDelete} disabled={cloud.busy} style={{ alignSelf: 'center', paddingTop: 14 }} accessibilityRole="button">
+            <Text style={{ color: C.red, fontSize: 14 }}>Effacer mes données en ligne</Text>
+          </Pressable>
+        </>
+      ) : (
+        <>
+          <Text style={st.sectionHint}>Facultatif. Crée un compte pour sauvegarder ta partie en ligne et la retrouver sur un autre appareil.</Text>
+          <TextInput style={st.input} value={email} onChangeText={setEmail} placeholder="E-mail" placeholderTextColor={C.muted}
+            autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" textContentType="emailAddress" accessibilityLabel="E-mail" />
+          <TextInput style={[st.input, { marginTop: 8 }]} value={password} onChangeText={setPassword} placeholder="Mot de passe" placeholderTextColor={C.muted}
+            secureTextEntry autoCapitalize="none" autoCorrect={false} autoComplete="password" textContentType="password" accessibilityLabel="Mot de passe" />
+          <Pressable onPress={need(() => cloud.signIn(email, password))} disabled={cloud.busy} style={[st.buy, { marginTop: 12 }, cloud.busy && st.buyOff]} accessibilityRole="button">
+            <Text style={st.buyText}>{cloud.busy ? 'Un instant…' : 'Se connecter'}</Text>
+          </Pressable>
+          <Pressable onPress={need(() => cloud.signUp(email, password))} disabled={cloud.busy} style={[st.outlineBtn, { marginTop: 10 }]} accessibilityRole="button">
+            <Text style={st.outlineBtnText}>Créer un compte</Text>
+          </Pressable>
+          <Pressable onPress={need(() => cloud.recover(email), false)} disabled={cloud.busy} style={{ alignSelf: 'center', paddingTop: 14 }} accessibilityRole="button">
+            <Text style={{ color: C.muted, fontSize: 14 }}>Mot de passe oublié ?</Text>
+          </Pressable>
+        </>
+      )}
+      {!!note && <Text style={[st.errorText, note.ok && { color: C.green }]}>{note.message}</Text>}
+    </View>
+  );
+}
+
 function Setting({ label, hint, value, onChange }) {
   return (
     <View style={st.settingRow}>
@@ -97,8 +160,10 @@ export function AccountModal({ visible, g, onClose }) {
                 {rank.next !== null && <Row k={`Prochain rang : ${rank.nextLabel}`} v={`${disc.size}/${rank.next} versions`} />}
                 <Row k="Joueur depuis le" v={since} />
               </View>
-              <Text style={[st.sectionHint, { marginTop: 10, marginBottom: 0 }]}>Ton profil est enregistré sur cet appareil. Pour changer de téléphone, utilise le code de sauvegarde plus bas.</Text>
+              <Text style={[st.sectionHint, { marginTop: 10, marginBottom: 0 }]}>Ton profil est enregistré sur cet appareil, et sur ton compte en ligne si tu es connecté.</Text>
             </View>
+
+            <OnlineCard cloud={g.cloud} />
 
             <View style={st.card}>
               <Text style={st.cardTitle}>Statistiques</Text>

@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto';
 import { INITIAL } from '../src/state/initial.js';
 import { sanitizeSave, encodeSave, decodeSave } from '../src/state/transfer.js';
+import { createCloud, needsRefresh } from '../src/cloud/client.js';
 import { RAR, BRANDS, MODELS, CARS, BY_RARITY, THEMES, BOXES, boxAvailable, boxPrice } from '../src/data/index.js';
 
 const EXPECTED = {
@@ -75,6 +76,64 @@ console.log('\n— Sauvegarde —');
   check('Ancienne sauvegarde reprise', old.garage.length === 1 && old.discovered.length === 1 && old.sound === true && old.tutorialDone === true ? 'ok' : 'cassée', 'ok');
   const junk = sanitizeSave({ coins: 'abc', tapLevel: -4, garage: 'x', discovered: null });
   check('Sauvegarde abîmée tolérée', junk.coins === INITIAL.coins && junk.tapLevel === 1 && junk.garage.length === 0 ? 'ok' : 'cassée', 'ok');
+}
+
+console.log('\n— Compte en ligne (faux serveur Supabase en mémoire) —');
+{
+  // Imite les réponses de Supabase (auth + table gd_saves avec RLS par utilisateur)
+  const users = new Map(); const rows = new Map(); let n = 0;
+  const reply = (status, body) => ({ ok: status < 300, status, text: async () => (body === undefined ? '' : JSON.stringify(body)) });
+  const sessionOf = (u) => ({ access_token: 'at-' + u.id + '-' + (++n), refresh_token: 'rt-' + u.id, expires_in: 3600, user: { id: u.id, email: u.email } });
+  const fetchImpl = async (url, { method, headers, body }) => {
+    const u = new URL(url); const b = body ? JSON.parse(body) : {};
+    if (headers.apikey !== 'cle') return reply(401, { message: 'Invalid API key' });
+    const who = [...users.values()].find((x) => headers.Authorization.startsWith('Bearer at-' + x.id + '-'));
+    if (u.pathname === '/auth/v1/signup') {
+      if (users.has(b.email)) return reply(422, { error_code: 'user_already_exists', msg: 'User already registered' });
+      if (b.password.length < 6) return reply(422, { error_code: 'weak_password', msg: 'Password should be at least 6 characters' });
+      const user = { id: 'u' + (users.size + 1), email: b.email, password: b.password }; users.set(b.email, user);
+      return reply(200, sessionOf(user));
+    }
+    if (u.pathname === '/auth/v1/token') {
+      if (u.searchParams.get('grant_type') === 'refresh_token') {
+        const user = [...users.values()].find((x) => 'rt-' + x.id === b.refresh_token);
+        return user ? reply(200, sessionOf(user)) : reply(400, { error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token' });
+      }
+      const user = users.get(b.email);
+      return user && user.password === b.password ? reply(200, sessionOf(user)) : reply(400, { error_code: 'invalid_credentials', msg: 'Invalid login credentials' });
+    }
+    if (u.pathname === '/rest/v1/gd_saves') {
+      if (!who) return reply(401, { message: 'JWT expired' });
+      if (method === 'POST') {
+        if (b.user_id !== who.id) return reply(403, { message: 'new row violates row-level security policy' });
+        rows.set(who.id, { ...b, updated_at: b.updated_at.replace('Z', '+00:00') }); return reply(201, [rows.get(who.id)]);
+      }
+      if (method === 'DELETE') { rows.delete(who.id); return reply(204); }
+      return reply(200, rows.has(who.id) ? [{ data: rows.get(who.id).data, updated_at: rows.get(who.id).updated_at }] : []);
+    }
+    return reply(404, { message: 'not found' });
+  };
+  const cloud = createCloud({ url: 'http://faux/', key: 'cle', fetchImpl });
+  const msg = async (p) => { try { await p; return 'aucune erreur'; } catch (e) { return e.message; } };
+
+  const { session } = await cloud.signUp('a@b.fr', 'secret1');
+  check('Création de compte', session && session.user.email, 'a@b.fr');
+  check('Compte déjà existant', await msg(cloud.signUp('a@b.fr', 'secret1')), 'Un compte existe déjà avec cet e-mail. Connecte-toi.');
+  check('Mauvais mot de passe', await msg(cloud.signIn('a@b.fr', 'faux')), 'E-mail ou mot de passe incorrect.');
+  const s1 = await cloud.signIn('a@b.fr', 'secret1');
+  check('Aucune partie en ligne au départ', await cloud.getSave(s1), null);
+  const state = { ...INITIAL, coins: 777, name: 'Pilote', discovered: [CARS[0].id, CARS[1].id] };
+  const stamp = await cloud.putSave(s1, state);
+  const row = await cloud.getSave(s1);
+  check('Envoi puis relecture de la partie', row.data.coins === 777 && row.updated_at === stamp && sanitizeSave(row.data).discovered.length === 2 ? 'ok' : 'différent', 'ok');
+  const s2 = await cloud.refresh({ ...s1, lastPushed: stamp });
+  check('Renouvellement de session', s2.access_token !== s1.access_token && s2.lastPushed === stamp ? 'ok' : 'cassé', 'ok');
+  check('Session expirée détectée', needsRefresh({ expires_at: Date.now() / 1000 - 5 }) && !needsRefresh(s2) ? 'ok' : 'cassé', 'ok');
+  check('Jeton invalide refusé', await msg(cloud.getSave({ ...s1, access_token: 'at-inconnu' })), 'JWT expired');
+  await cloud.deleteSave(s2);
+  check('Suppression des données en ligne', await cloud.getSave(s2), null);
+  const down = createCloud({ url: 'http://faux', key: 'cle', fetchImpl: async () => { throw new Error('offline'); } });
+  check('Hors connexion', await msg(down.signIn('a@b.fr', 'secret1')), 'Pas de connexion. Vérifie ton réseau et réessaie.');
 }
 
 console.log(failed ? '\n✗ Vérification ÉCHOUÉE' : '\n✓ Tout correspond');

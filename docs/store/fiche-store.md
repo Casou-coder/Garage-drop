@@ -42,7 +42,7 @@ PROGRESSE
 • Complète une marque pour augmenter tes revenus
 • Reviens chaque jour pour ta récompense
 
-Gratuit, sans publicité, sans achat intégré. Tout l'argent du jeu est virtuel. Les marques et modèles sont fictifs. Jouable hors connexion.
+Gratuit, sans publicité, sans achat intégré. Tout l'argent du jeu est virtuel. Les marques et modèles sont fictifs. Jouable hors connexion, compte en ligne facultatif pour retrouver ta partie sur un autre appareil.
 
 ## Mots-clés (iOS, 100 car. max)
 
@@ -64,7 +64,14 @@ Elles viennent d'un rendu navigateur de l'app : les remplacer par de vraies capt
 ## Questionnaires
 
 ### Apple : confidentialité de l'app
-« Données non collectées » (aucune donnée ne quitte l'appareil).
+Le compte en ligne est facultatif. Déclarer, comme données **liées à l'utilisateur**, utilisées pour **le fonctionnement de l'app** uniquement, sans suivi :
+- Coordonnées > Adresse e-mail
+- Contenu utilisateur > Contenu de jeu (la partie sauvegardée)
+- Identifiants > Identifiant utilisateur
+
+Si l'app est publiée **sans** clé Supabase (compte en ligne désactivé), répondre « Données non collectées ».
+
+Apple exige qu'une app permettant de créer un compte permette aussi de le supprimer depuis l'app : voir le point ouvert dans `docs/PUBLICATION.md`.
 
 ### Apple : classification par âge
 - Jeux de hasard simulés : **Peu fréquents / légers**. Le jeu ouvre des boîtes au contenu aléatoire payées en monnaie virtuelle, sans argent réel ni gain réel.
@@ -75,7 +82,7 @@ Elles viennent d'un rendu navigateur de l'app : les remplacer par de vraies capt
 L'app n'utilise pas de chiffrement non exempté (déjà déclaré dans `app.json`).
 
 ### Google Play : sécurité des données
-Aucune donnée collectée, aucune donnée partagée.
+Données collectées (facultatives, seulement si le joueur crée un compte) : adresse e-mail, identifiant utilisateur, progression dans le jeu. Finalité : fonctionnement de l'app et gestion du compte. Données chiffrées en transit, non partagées, suppression possible sur demande (URL : page d'assistance).
 
 ### Google Play : classification du contenu (IARC)
 Pas de violence, pas de contenu sexuel, pas de langage grossier, pas de communication entre joueurs, pas d'achat. Signaler les éléments aléatoires en monnaie virtuelle si la question est posée.
@@ -84,4 +91,4 @@ Pas de violence, pas de contenu sexuel, pas de langage grossier, pas de communic
 13 ans et plus (évite les obligations du programme Familles).
 
 ### Notes pour la revue Apple
-Jeu hors-ligne sans compte en ligne ni achat. Les boîtes s'achètent uniquement avec la monnaie virtuelle gagnée en jouant, et les probabilités de chaque rareté sont affichées sur chaque boîte (onglet Boîtes). Toutes les marques et tous les modèles sont fictifs.
+Jeu jouable hors-ligne et sans compte ; un compte en ligne facultatif (e-mail et mot de passe) sert uniquement à sauvegarder la partie. Aucun achat. Les boîtes s'achètent uniquement avec la monnaie virtuelle gagnée en jouant, et les probabilités de chaque rareté sont affichées sur chaque boîte (onglet Boîtes). Toutes les marques et tous les modèles sont fictifs.

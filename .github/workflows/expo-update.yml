@@ -40,6 +40,8 @@ jobs:
       - name: Publie la mise à jour
         env:
           BRANCH: ${{ github.ref_name }}
+          # Clé publique Supabase (facultative) : active le compte en ligne
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
           MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           npx --yes eas-cli@latest update --branch "$BRANCH" \

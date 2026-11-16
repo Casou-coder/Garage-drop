@@ -10,6 +10,7 @@ import { fmt, uid } from '../utils/format';
 import { hap, sfx, setFeedbackPrefs } from '../utils/feedback';
 import { INITIAL, loadGame, saveGame } from './save';
 import { encodeSave, decodeSave } from './transfer';
+import { useCloud } from './useCloud';
 
 const rollSerial = (car) => {
   const V = VARIANTS[car.variant];
@@ -104,6 +105,8 @@ export function useGame() {
 
   // Réglages de son et de vibrations
   useEffect(() => { setFeedbackPrefs({ sound: s.sound, haptics: s.haptics }); }, [s.sound, s.haptics]);
+
+  const cloud = useCloud({ s, loaded, replaceState: setS, showToast });
 
   /* Actions */
   const tap = () => { hap('tap'); sfx('tap'); setS((p) => ({ ...p, coins: p.coins + tapValue(p.tapLevel), taps: p.taps + 1 })); };
@@ -227,7 +230,7 @@ export function useGame() {
   ]);
 
   return {
-    s, loaded, disc, done, value, perSec, toast, reveal, detail, setDetail, account, setAccount,
+    s, loaded, cloud, disc, done, value, perSec, toast, reveal, detail, setDetail, account, setAccount,
     tap, openBox, finishReveal, tradeUp, sellUid, sellDuplicates, claimDaily, upgrade, reset,
     setSetting, setName, finishTutorial, replayTutorial, exportCode, importCode,
   };

@@ -10,7 +10,7 @@ Le développeur travaille uniquement depuis un iPhone et teste avec Expo Go.
 - **Garage** : chaque voiture obtenue est gardée ou revendue à la cote du jour. Échange de 5 voitures d'une rareté contre 1 de la rareté au-dessus. Vente des doublons.
 - **Carnet** : collection de toutes les versions, groupées par marque, région, pays, catégorie ou époque. Une marque complète (version standard de chaque modèle) donne +5 % de revenus passifs.
 - **Atelier** : améliorations du tap et des revenus passifs.
-- **Compte** (bouton en haut à gauche) : pseudo, rang, statistiques, réglages (sons, vibrations, ouvertures rapides), code de sauvegarde pour changer d'appareil, tutoriel, confidentialité, remise à zéro. Le compte est **local** : il n'y a pas de backend.
+- **Compte** (bouton en haut à gauche) : pseudo, rang, statistiques, réglages (sons, vibrations, ouvertures rapides), code de sauvegarde pour changer d'appareil, tutoriel, confidentialité, remise à zéro. Le jeu se joue sans compte. Un **compte en ligne facultatif** (e-mail + mot de passe, Supabase) synchronise la partie entre appareils.
 
 Marques et modèles **fictifs uniquement** : ne jamais introduire de vraie marque ni de vrai nom de modèle.
 
@@ -51,16 +51,20 @@ src/
     market.js           Cote du jour (marketFactor, quote)
     income.js           Tap, mécanos, showroom, bonus de marques, passiveRate
     rewards.js          Récompense quotidienne, gains hors-ligne
+  config.js             Adresse et clé publique Supabase (CLOUD_ENABLED est faux sans clé : le compte en ligne est alors masqué)
+  cloud/client.js       Client Supabase minimal en fetch : auth e-mail, table gd_saves (pur, testé par verify)
   state/
     initial.js          SAVE_KEY et INITIAL (pur)
     transfer.js         sanitizeSave, encodeSave, decodeSave : nettoyage et code de sauvegarde (pur)
     save.js             loadGame, saveGame (AsyncStorage)
+    useCloud.js         Hook : session, connexion, synchronisation de la partie (envoi chaque minute et en arrière-plan)
     useGame.js          Hook : état du jeu et toutes les actions (ouvrir, vendre, échanger, améliorer, compte…)
   components/           CarArt, BoxArt, Chip/ChipRow, RarityTag, Trend, ErrorBoundary
   screens/              HomeScreen (Showroom), BoxesScreen, GarageScreen, CarnetScreen, UpgradesScreen (Atelier)
   modals/               RevealModal (ouverture), DetailModal (fiche voiture), AccountModal (compte), TutorialModal
   utils/                format (fmt, uid, carName…), feedback (vibrations et sons), performance, rank
 scripts/verify.mjs      Contrôle des invariants
+supabase/garagedrop.sql Table gd_saves et règles RLS (à exécuter une fois dans le SQL Editor de Supabase)
 docs/                   Page d'assistance et confidentialité (GitHub Pages), fiche store, guide de publication
 .github/workflows/      expo-update (publication Expo Go à chaque push), store-build (EAS Build manuel)
 ```
@@ -190,5 +194,16 @@ s'assurer que le bundle se construit (ajouter `EXPO_OFFLINE=1` si l'API Expo est
 - Zones sûres : utiliser `useSafeAreaInsets` (react-native-safe-area-context), jamais le `SafeAreaView` de react-native (déprécié).
 - Tout retour haptique ou sonore passe par `hap()` et `sfx()` de `src/utils/feedback.js`, qui respectent les réglages du joueur.
 - `Alert.alert` ne fait rien sur le web : les confirmations y sont contournées (`Platform.OS === 'web'`), utile pour les tests navigateur.
-- Aucune permission : pas de micro (plugin expo-audio configuré sans), pas de réseau requis. Garder la fiche « aucune donnée collectée » vraie ; si un backend arrive, mettre à jour `src/data/privacy.js`, `docs/privacy.html` et `docs/store/fiche-store.md`.
+- Aucune permission : pas de micro (plugin expo-audio configuré sans). Le réseau ne sert qu'au compte en ligne facultatif. Toute nouvelle donnée envoyée en ligne doit être reflétée dans `src/data/privacy.js`, `docs/privacy.html` et `docs/store/fiche-store.md`.
 - La vente d'une voiture Légendaire ou mieux, ou numérotée, demande une confirmation.
+
+## Compte en ligne (Supabase)
+
+- Projet Supabase **partagé avec l'app OR Vault** du même développeur : les comptes (auth.users) sont communs aux deux apps.
+  Ne jamais toucher aux tables d'OR Vault ; tout ce qui concerne GarageDrop est préfixé `gd_`.
+  Ne jamais appeler la fonction `delete_user` du projet depuis GarageDrop : elle supprimerait aussi le compte OR Vault.
+- Pas de supabase-js : `src/cloud/client.js` appelle directement les API REST (`/auth/v1`, `/rest/v1`). Cela évite les correctifs Metro/Hermes qu'OR Vault a dû appliquer.
+- Synchronisation : la partie entière est stockée en JSON dans `gd_saves.data` (une ligne par joueur, RLS `auth.uid() = user_id`).
+  `updated_at` sert de témoin : au lancement, si la ligne en ligne n'a pas l'horodatage du dernier envoi de cet appareil (`session.lastPushed`), un autre appareil a joué et la partie en ligne est chargée. Dernier écrit gagnant.
+- Le client fait foi (pas d'anti-triche) : à revoir avant tout classement ou marché entre joueurs.
+- La clé anon vient de `EXPO_PUBLIC_SUPABASE_ANON_KEY` (secret GitHub pour le workflow Expo Go). Sans clé, l'app fonctionne en local uniquement.
